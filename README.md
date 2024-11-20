@@ -1,1 +1,1 @@
-# is-website
+# Information System Website Project
