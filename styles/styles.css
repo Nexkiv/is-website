@@ -31,6 +31,24 @@ h1, h2, h3, h4, h5, h6 {
     position: fixed;
 }
 
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar ul li {
+    margin: 15px 0;
+}
+
+.sidebar ul li a{
+    color: white;
+    text-decoration: none;
+}
+
+.sidebar ul li a:hover{
+    text-decoration: underline;
+}
+
 .navbar {
     padding: 10px;
     display: flex;
