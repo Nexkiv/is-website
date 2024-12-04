@@ -2,9 +2,9 @@
 
 ## Fundamentals of HTML
 
-HTML: Hyper Text Markup Language\n
-Lists (ul and ol) can only contain list item elements (li)\n
-Only index.html can live in the main repository\n
+HTML: Hyper Text Markup Language\
+Lists (ul and ol) can only contain list item elements (li)\
+Only index.html can live in the main repository\
 
 ## HTML day 2 and CSS day 1
 
@@ -12,7 +12,7 @@ Hard coding style is frowned upon
 
 ## Web Dev Day 3
 
-`<title>` in the header updates the tab name\n
+`<title>` in the header updates the tab name\
 
 `<!--comments look like this-->`
 
@@ -26,13 +26,13 @@ Hard coding style is frowned upon
 
 ### Block Elements
 
-Start a new line\n
-Take up the whjole width available\n
+Start a new line\
+Take up the whjole width available\
 
 ### Inline Elements
 
-Do not start on a new line\n
-Only take up as much width as necessary\n
+Do not start on a new line\
+Only take up as much width as necessary\
 
 ```css
 h1{}
