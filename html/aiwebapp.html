@@ -62,12 +62,13 @@
         let player, enemy, grid, trails;
         let gameRunning = false;
 
-        class AggressiveAI {
+        class ImprovedAI {
             constructor(width, height) {
                 this.width = width;
                 this.height = height;
                 this.directions = ['up', 'down', 'left', 'right'];
                 this.lastDirection = null;
+                this.wallAvoidanceDistance = 3;
             }
 
             move(x, y, grid, playerX, playerY) {
@@ -85,22 +86,24 @@
                     const newGrid = this.copyGrid(grid);
                     newGrid[nx][ny] = 1;
                     
-                    const floodFillScore = this.floodFill(newGrid, nx, ny);
-                    const edgeScore = -this.evaluateEdgeProximity(nx, ny);
-                    const straightBonus = (dir === this.lastDirection) ? 20 : 0;
-                    const interceptScore = this.evaluateIntercept(nx, ny, playerX, playerY) * 50;
-                    const randomFactor = Math.random() * 5;
-                    
-                    const totalScore = floodFillScore + edgeScore + straightBonus + interceptScore + randomFactor;
-                    
-                    if (totalScore > bestScore) {
-                        bestScore = totalScore;
+                    const score = this.evaluateMove(nx, ny, playerX, playerY, newGrid, dir);
+                    if (score > bestScore) {
+                        bestScore = score;
                         bestMove = dir;
                     }
                 }
 
                 this.lastDirection = bestMove;
                 return bestMove;
+            }
+
+            evaluateMove(x, y, playerX, playerY, grid, direction) {
+                const floodFillScore = this.floodFill(x, y, grid) * 3;
+                const distanceScore = this.evaluateDistanceToPlayer(x, y, playerX, playerY);
+                const continuityBonus = direction === this.lastDirection ? 5 : 0;
+                const wallAvoidanceScore = this.evaluateWallAvoidance(x, y) * 20;
+                const centerAttractionScore = this.evaluateCenterAttraction(x, y) * 10;
+                return floodFillScore + distanceScore + continuityBonus + wallAvoidanceScore + centerAttractionScore;
             }
 
             getValidMoves(x, y, grid) {
@@ -127,9 +130,9 @@
                 return grid.map(row => [...row]);
             }
 
-            floodFill(grid, x, y) {
+            floodFill(x, y, grid) {
                 const stack = [[x, y]];
-                let count = 0;
+                let area = 0;
                 const visited = new Set();
 
                 while (stack.length > 0) {
@@ -137,7 +140,7 @@
                     const key = `${cx},${cy}`;
                     if (!visited.has(key) && this.isValidMove(cx, cy, grid)) {
                         visited.add(key);
-                        count++;
+                        area++;
                         for (const dir of this.directions) {
                             const [nx, ny] = this.getNextPosition(cx, cy, dir);
                             stack.push([nx, ny]);
@@ -145,22 +148,29 @@
                     }
                 }
 
-                return count;
+                return area;
             }
 
-            evaluateEdgeProximity(x, y) {
-                const distanceToEdge = Math.min(x, y, this.width - x - 1, this.height - y - 1);
-                return distanceToEdge / Math.max(this.width, this.height);
+            evaluateDistanceToPlayer(x, y, playerX, playerY) {
+                return 10 / (Math.abs(playerX - x) + Math.abs(playerY - y) + 1);
             }
 
-            evaluateIntercept(x, y, playerX, playerY) {
-                const dx = playerX - x;
-                const dy = playerY - y;
-                return 1 / (Math.abs(dx) + Math.abs(dy) + 1);
+            evaluateWallAvoidance(x, y) {
+                const distanceToWall = Math.min(
+                    x, y, this.width - x - 1, this.height - y - 1
+                );
+                return distanceToWall <= this.wallAvoidanceDistance ? -10 : 0;
+            }
+
+            evaluateCenterAttraction(x, y) {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const distanceToCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                return 1 / (distanceToCenter + 1);
             }
         }
 
-        const ai = new AggressiveAI(width, height);
+        const ai = new ImprovedAI(width, height);
 
         function resetGame() {
             player = { x: 5, y: Math.floor(height / 2), dir: 'right', color: '#0ff' };
@@ -212,7 +222,7 @@
             trails.forEach(trail => {
                 trail.age++;
                 if (trail.age >= trailLifetime) {
-                    grid[trail.x][trail.y] = 0; // Clear the grid cell when trail disappears
+                    grid[trail.x][trail.y] = 0;
                 }
             });
             trails = trails.filter(trail => trail.age < trailLifetime);
@@ -229,7 +239,6 @@
                 move(player);
                 move(enemy);
 
-                // Check for simultaneous occupation
                 if (Math.floor(player.x) === Math.floor(enemy.x) && Math.floor(player.y) === Math.floor(enemy.y)) {
                     showMessage('Tie Game! Press R to Restart');
                     gameRunning = false;
