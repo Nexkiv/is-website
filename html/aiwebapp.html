@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TRON Light Cycles</title>
     <style>
+        @font-face {
+            font-family: 'Tron';
+            src: url('../assets/font/Tron.ttf') format('truetype');
+        }
         body {
             background: #000;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -24,11 +29,27 @@
             font-size: 24px;
             display: none;
         }
+        #logo {
+            font-family: 'Tron', sans-serif;
+            font-size: 48px;
+            color: #0ff;
+            margin-bottom: 20px;
+        }
+        #instructions {
+            margin-top: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
+    <div id="logo">TRON</div>
     <canvas id="gameCanvas" width="400" height="300"></canvas>
     <div id="message"></div>
+    <div id="instructions">
+        Controls:<br>
+        Use Arrow Keys to move<br>
+        Press R to restart the game
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -41,36 +62,52 @@
         let player, enemy, grid, trails;
         let gameRunning = false;
 
-        class ImprovedAI {
+        class AggressiveAI {
             constructor(width, height) {
                 this.width = width;
                 this.height = height;
                 this.directions = ['up', 'down', 'left', 'right'];
+                this.lastDirection = null;
             }
 
-            move(x, y, grid) {
+            move(x, y, grid, playerX, playerY) {
+                let validMoves = this.getValidMoves(x, y, grid);
+                
+                if (validMoves.length === 0) {
+                    return this.directions[Math.floor(Math.random() * this.directions.length)];
+                }
+
                 let bestMove = null;
                 let bestScore = -Infinity;
 
-                for (const dir of this.directions) {
+                for (const dir of validMoves) {
                     const [nx, ny] = this.getNextPosition(x, y, dir);
-                    if (this.isValidMove(nx, ny, grid)) {
-                        const newGrid = this.copyGrid(grid);
-                        newGrid[nx][ny] = 1;
-                        
-                        const floodFillScore = this.floodFill(newGrid, nx, ny);
-                        const edgeScore = -this.evaluateEdgeProximity(nx, ny);
-                        
-                        const totalScore = floodFillScore + edgeScore;
-                        
-                        if (totalScore > bestScore) {
-                            bestScore = totalScore;
-                            bestMove = dir;
-                        }
+                    const newGrid = this.copyGrid(grid);
+                    newGrid[nx][ny] = 1;
+                    
+                    const floodFillScore = this.floodFill(newGrid, nx, ny);
+                    const edgeScore = -this.evaluateEdgeProximity(nx, ny);
+                    const straightBonus = (dir === this.lastDirection) ? 20 : 0;
+                    const interceptScore = this.evaluateIntercept(nx, ny, playerX, playerY) * 50;
+                    const randomFactor = Math.random() * 5;
+                    
+                    const totalScore = floodFillScore + edgeScore + straightBonus + interceptScore + randomFactor;
+                    
+                    if (totalScore > bestScore) {
+                        bestScore = totalScore;
+                        bestMove = dir;
                     }
                 }
 
-                return bestMove || this.directions[Math.floor(Math.random() * this.directions.length)];
+                this.lastDirection = bestMove;
+                return bestMove;
+            }
+
+            getValidMoves(x, y, grid) {
+                return this.directions.filter(dir => {
+                    const [nx, ny] = this.getNextPosition(x, y, dir);
+                    return this.isValidMove(nx, ny, grid);
+                });
             }
 
             getNextPosition(x, y, direction) {
@@ -115,9 +152,15 @@
                 const distanceToEdge = Math.min(x, y, this.width - x - 1, this.height - y - 1);
                 return distanceToEdge / Math.max(this.width, this.height);
             }
+
+            evaluateIntercept(x, y, playerX, playerY) {
+                const dx = playerX - x;
+                const dy = playerY - y;
+                return 1 / (Math.abs(dx) + Math.abs(dy) + 1);
+            }
         }
 
-        const ai = new ImprovedAI(width, height);
+        const ai = new AggressiveAI(width, height);
 
         function resetGame() {
             player = { x: 5, y: Math.floor(height / 2), dir: 'right', color: '#0ff' };
@@ -147,19 +190,11 @@
         function checkCollision(p) {
             const x = Math.floor(p.x);
             const y = Math.floor(p.y);
-            if (x < 0 || x >= width || y < 0 || y >= height) return true;
-            
-            for (let trail of trails) {
-                if (trail.age < trailLifetime && trail.x === x && trail.y === y) {
-                    return true;
-                }
-            }
-            
-            return false;
+            return x < 0 || x >= width || y < 0 || y >= height || grid[x][y] !== 0;
         }
 
         function aiMove() {
-            enemy.dir = ai.move(Math.floor(enemy.x), Math.floor(enemy.y), grid);
+            enemy.dir = ai.move(Math.floor(enemy.x), Math.floor(enemy.y), grid, Math.floor(player.x), Math.floor(player.y));
         }
 
         function drawGrid() {
@@ -174,7 +209,12 @@
         }
 
         function updateTrails() {
-            trails.forEach(trail => trail.age++);
+            trails.forEach(trail => {
+                trail.age++;
+                if (trail.age >= trailLifetime) {
+                    grid[trail.x][trail.y] = 0; // Clear the grid cell when trail disappears
+                }
+            });
             trails = trails.filter(trail => trail.age < trailLifetime);
         }
 
@@ -189,6 +229,13 @@
                 move(player);
                 move(enemy);
 
+                // Check for simultaneous occupation
+                if (Math.floor(player.x) === Math.floor(enemy.x) && Math.floor(player.y) === Math.floor(enemy.y)) {
+                    showMessage('Tie Game! Press R to Restart');
+                    gameRunning = false;
+                    return;
+                }
+
                 if (checkCollision(player)) {
                     showMessage('AI Wins! Press R to Restart');
                     gameRunning = false;
@@ -200,6 +247,9 @@
                     gameRunning = false;
                     return;
                 }
+
+                grid[Math.floor(player.x)][Math.floor(player.y)] = 1;
+                grid[Math.floor(enemy.x)][Math.floor(enemy.y)] = 1;
 
                 trails.push({ x: Math.floor(player.x), y: Math.floor(player.y), color: player.color.replace(')', ', 1)'), age: 0 });
                 trails.push({ x: Math.floor(enemy.x), y: Math.floor(enemy.y), color: enemy.color.replace(')', ', 1)'), age: 0 });
