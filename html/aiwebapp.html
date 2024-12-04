@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRON Light Cycles</title>
+    <style>
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #0ff;
+        }
+        #gameCanvas {
+            border: 1px solid #0ff;
+        }
+        #message {
+            position: absolute;
+            color: #0ff;
+            font-size: 24px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="300"></canvas>
+    <div id="message"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 5;
+        const width = Math.floor(canvas.width / gridSize);
+        const height = Math.floor(canvas.height / gridSize);
+        const trailLifetime = 50;
+
+        let player, enemy, grid, trails;
+        let gameRunning = false;
+
+        class ImprovedAI {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.directions = ['up', 'down', 'left', 'right'];
+            }
+
+            move(x, y, grid) {
+                let bestMove = null;
+                let bestScore = -Infinity;
+
+                for (const dir of this.directions) {
+                    const [nx, ny] = this.getNextPosition(x, y, dir);
+                    if (this.isValidMove(nx, ny, grid)) {
+                        const newGrid = this.copyGrid(grid);
+                        newGrid[nx][ny] = 1;
+                        
+                        const floodFillScore = this.floodFill(newGrid, nx, ny);
+                        const edgeScore = -this.evaluateEdgeProximity(nx, ny);
+                        
+                        const totalScore = floodFillScore + edgeScore;
+                        
+                        if (totalScore > bestScore) {
+                            bestScore = totalScore;
+                            bestMove = dir;
+                        }
+                    }
+                }
+
+                return bestMove || this.directions[Math.floor(Math.random() * this.directions.length)];
+            }
+
+            getNextPosition(x, y, direction) {
+                switch (direction) {
+                    case 'up': return [x, y - 1];
+                    case 'down': return [x, y + 1];
+                    case 'left': return [x - 1, y];
+                    case 'right': return [x + 1, y];
+                }
+            }
+
+            isValidMove(x, y, grid) {
+                return x >= 0 && x < this.width && y >= 0 && y < this.height && grid[x][y] === 0;
+            }
+
+            copyGrid(grid) {
+                return grid.map(row => [...row]);
+            }
+
+            floodFill(grid, x, y) {
+                const stack = [[x, y]];
+                let count = 0;
+                const visited = new Set();
+
+                while (stack.length > 0) {
+                    const [cx, cy] = stack.pop();
+                    const key = `${cx},${cy}`;
+                    if (!visited.has(key) && this.isValidMove(cx, cy, grid)) {
+                        visited.add(key);
+                        count++;
+                        for (const dir of this.directions) {
+                            const [nx, ny] = this.getNextPosition(cx, cy, dir);
+                            stack.push([nx, ny]);
+                        }
+                    }
+                }
+
+                return count;
+            }
+
+            evaluateEdgeProximity(x, y) {
+                const distanceToEdge = Math.min(x, y, this.width - x - 1, this.height - y - 1);
+                return distanceToEdge / Math.max(this.width, this.height);
+            }
+        }
+
+        const ai = new ImprovedAI(width, height);
+
+        function resetGame() {
+            player = { x: 5, y: Math.floor(height / 2), dir: 'right', color: '#0ff' };
+            enemy = { x: width - 5, y: Math.floor(height / 2), dir: 'left', color: '#f0f' };
+            grid = new Array(width).fill(null).map(() => new Array(height).fill(0));
+            trails = [];
+            document.getElementById('message').style.display = 'none';
+            gameRunning = true;
+            lastFrameTime = performance.now();
+            gameLoop();
+        }
+
+        function drawPlayer(p) {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(Math.floor(p.x) * gridSize, Math.floor(p.y) * gridSize, gridSize, gridSize);
+        }
+
+        function move(p) {
+            switch(p.dir) {
+                case 'up': p.y--; break;
+                case 'down': p.y++; break;
+                case 'left': p.x--; break;
+                case 'right': p.x++; break;
+            }
+        }
+
+        function checkCollision(p) {
+            const x = Math.floor(p.x);
+            const y = Math.floor(p.y);
+            if (x < 0 || x >= width || y < 0 || y >= height) return true;
+            
+            for (let trail of trails) {
+                if (trail.age < trailLifetime && trail.x === x && trail.y === y) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        function aiMove() {
+            enemy.dir = ai.move(Math.floor(enemy.x), Math.floor(enemy.y), grid);
+        }
+
+        function drawGrid() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            trails.forEach(trail => {
+                const alpha = Math.max(0, 1 - (trail.age / trailLifetime));
+                ctx.fillStyle = trail.color.replace('1)', `${alpha})`);
+                ctx.fillRect(trail.x * gridSize, trail.y * gridSize, gridSize, gridSize);
+            });
+        }
+
+        function updateTrails() {
+            trails.forEach(trail => trail.age++);
+            trails = trails.filter(trail => trail.age < trailLifetime);
+        }
+
+        let lastFrameTime;
+
+        function gameLoop(currentTime) {
+            if (!gameRunning) return;
+
+            if (currentTime - lastFrameTime >= (1000 / 60)) {
+                lastFrameTime = currentTime;
+
+                move(player);
+                move(enemy);
+
+                if (checkCollision(player)) {
+                    showMessage('AI Wins! Press R to Restart');
+                    gameRunning = false;
+                    return;
+                }
+
+                if (checkCollision(enemy)) {
+                    showMessage('Player Wins! Press R to Restart');
+                    gameRunning = false;
+                    return;
+                }
+
+                trails.push({ x: Math.floor(player.x), y: Math.floor(player.y), color: player.color.replace(')', ', 1)'), age: 0 });
+                trails.push({ x: Math.floor(enemy.x), y: Math.floor(enemy.y), color: enemy.color.replace(')', ', 1)'), age: 0 });
+
+                updateTrails();
+                drawGrid();
+
+                drawPlayer(player);
+                drawPlayer(enemy);
+
+                aiMove();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showMessage(msg) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerText = msg;
+            messageDiv.style.display = 'block';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning && e.key.toLowerCase() === 'r') {
+                resetGame();
+                return;
+            }
+
+            if (!gameRunning) return;
+
+            switch(e.key) {
+                case 'ArrowUp': if (player.dir !== 'down') player.dir = 'up'; break;
+                case 'ArrowDown': if (player.dir !== 'up') player.dir = 'down'; break;
+                case 'ArrowLeft': if (player.dir !== 'right') player.dir = 'left'; break;
+                case 'ArrowRight': if (player.dir !== 'left') player.dir = 'right'; break;
+            }
+        });
+
+        resetGame();
+    </script>
+</body>
+</html>
