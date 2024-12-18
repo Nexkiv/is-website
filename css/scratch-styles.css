@@ -16,7 +16,7 @@ h1, h2, h3, h4, h5, h6 {
     font-style: bold;
 }
 
-#travel-poster {
+#travel-poster img {
     width: 300px;
     float: right;
     padding: 15px;
@@ -25,6 +25,7 @@ h1, h2, h3, h4, h5, h6 {
 .main-content {
     margin-left: 15vw;
     padding: 20px;
+    position: static;
 }
 
 .navbar {
@@ -53,6 +54,10 @@ h1, h2, h3, h4, h5, h6 {
 
 .tron {
     font-family: 'Tron', sans-serif;
+}
+
+.tableauPlaceholder {
+    position: relative;
 }
 
 .box-model {
