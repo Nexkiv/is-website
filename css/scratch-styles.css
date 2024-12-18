@@ -1,3 +1,8 @@
+@font-face {
+    font-family: 'Tron';
+    src: url('../assets/font/Tron.ttf') format('truetype');
+}
+
 body {
     background-color: rgb(242, 233, 219);
     color: black;
@@ -22,7 +27,7 @@ h1, h2, h3, h4, h5, h6 {
     padding: 20px;
 }
 
-.sidebar {
+.navbar {
     background-color: rgb(216, 140, 90);
     width: 13vw;
     height: 100%;
@@ -31,39 +36,27 @@ h1, h2, h3, h4, h5, h6 {
     position: fixed;
 }
 
-.sidebar ul {
+.navbar ul {
     list-style: none;
     padding: 0;
+    text-align: center;
 }
 
-.sidebar ul li {
+.navbar ul li {
     margin: 15px 0;
 }
 
-.sidebar ul li a{
+.navbar ul li a{
     color: white;
     text-decoration: none;
 }
 
-.sidebar ul li a:hover{
+.navbar ul li a:hover{
     text-decoration: underline;
 }
 
-.navbar {
-    padding: 10px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    color: white;
-}
-
-.navbar a {
-    color: black;
-}
-
-.navbar a:hover {
-    background-color: #d7d7d7;
-    border-radius: 5px;
+.tron {
+    font-family: 'Tron', sans-serif;
 }
 
 .box-model {
